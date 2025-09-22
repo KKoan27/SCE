@@ -8,9 +8,13 @@ class DbConn {
   DbConn(this._url);
 
   Future<Db> connect() async {
-    _db = await Db.create(_url);
-    await _db.open();
-    print("conectou se ao BD ✔");
+    try {
+      _db = await Db.create(_url);
+      await _db.open();
+      print("conectou se ao BD ✔");
+    } on MongoDartError catch (e) {
+      print("Erro na conexão : ${e} ");
+    }
     return _db;
   }
 
