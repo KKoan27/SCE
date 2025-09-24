@@ -41,6 +41,7 @@ class Operacoes {
           e.containsKey('nome')) {
         double latExistente = e['lat'];
         double lonExistente = e['long'];
+        String nomeExistente = e['nome'];
 
         double distancia = haversine(
           estabelecimento.Latitude!,
@@ -48,6 +49,8 @@ class Operacoes {
           latExistente,
           lonExistente,
         );
+
+        
 
         if (distancia <= 10) {
           print(
@@ -57,6 +60,14 @@ class Operacoes {
 
           return;
         }
+        else if (nomeExistente == estabelecimento.Nome){
+
+          print("Nome já existe no Banco de dados");
+          db.close();
+          
+          return;
+        }
+      
       } else {
         print("Documento sem lat/long/nome: $e");
       }
