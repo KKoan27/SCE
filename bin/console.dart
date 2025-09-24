@@ -1,5 +1,4 @@
 import '../lib/estabelecimentos.dart';
-import 'package:mongo_dart/mongo_dart.dart';
 import 'dart:io';
 import 'Operacoes.dart';
 
@@ -122,7 +121,7 @@ void main() async {
           limparTela();
           print("Inserção Invalida");
       }
-    } on FormatException catch (e) {
+    } on FormatException {
       limparTela();
       print("SEM TEXTO!!!! \n aperte enter para continuar");
     } catch (e) {

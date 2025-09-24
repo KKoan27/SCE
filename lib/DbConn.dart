@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:mongo_dart/mongo_dart.dart';
 
 class DbConn {
@@ -13,7 +12,7 @@ class DbConn {
       await _db.open();
       print("conectou se ao BD ✔");
     } on MongoDartError catch (e) {
-      print("Erro na conexão : ${e} ");
+      print("Erro na conexão : $e ");
     }
     return _db;
   }
