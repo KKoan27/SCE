@@ -41,9 +41,9 @@ void main() async {
             print("ESTABELECIMENTOS BUSCADOS\n\n");
 
             for (var i in result) {
-              print("NOME${i['nome']}");
-              print("LATITUDE${i['lat']}");
-              print("LONGITUDE${i['long']}");
+              print("NOME : ${i['nome']}");
+              print("LATITUDE : ${i['lat']}");
+              print("LONGITUDE : ${i['long']}");
               print("------------------------- \n");
             }
           } else {

@@ -92,7 +92,6 @@ class Operacoes {
         }).toList();
       } else {
         itemsEstabelecimento = await collection.find().toList();
-        stdin.readLineSync();
 
         db.close();
       }
@@ -180,7 +179,7 @@ class Operacoes {
       var result = await collection.deleteOne({'nome': nome});
 
       if (result.writeError == null) {
-        print("Estabelecimento deletado ${result.document}");
+        print("Estabelecimento deletado!");
       } else {
         throw Exception("Valor não encontrado no banco de dados");
       }
