@@ -12,23 +12,6 @@ class Operacoes {
 
   static List<Map<String, dynamic>> itemsEstabelecimento = [];
 
-  // essa função vai servir para fazer o calculo entre a distancia de um estabelecimento e outro, o resultado é essa diferença
-  // Função bem complexa
-  static double haversine(double lat1, double lon1, double lat2, double lon2) {
-    const R = 6371; // Raio da Terra em km
-    double dLat = (lat2 - lat1) * pi / 180;
-    double dLon = (lon2 - lon1) * pi / 180;
-
-    double a =
-        sin(dLat / 2) * sin(dLat / 2) +
-        cos(lat1 * pi / 180) *
-            cos(lat2 * pi / 180) *
-            sin(dLon / 2) *
-            sin(dLon / 2);
-    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    return R * c; // distância em km
-  }
-
   static Future<void> adicionarEstabelecimento(
     Estabelecimentos estabelecimento,
   ) async {
@@ -36,47 +19,38 @@ class Operacoes {
     var collection = db.collection('Estabelecimentos');
     itemsEstabelecimento = await collection.find().toList();
 
-    for (var e in itemsEstabelecimento) {
-      if (e.containsKey('lat') &&
-          e.containsKey('long') &&
-          e.containsKey('nome')) {
-        double latExistente = e['lat'];
-        double lonExistente = e['long'];
+    if (estabelecimento.validacao(itemsEstabelecimento) == true) {
+      var lugarPerto = await collection.findOne({
+        'location': {
+          '\$near': {
+            '\$geometry': estabelecimento.toGeoPoint(),
+            '\$maxDistance': 2000,
+          },
+        },
+      });
 
-        double distancia = haversine(
-          estabelecimento.Latitude!,
-          estabelecimento.Longitude!,
-          latExistente,
-          lonExistente,
+      if (lugarPerto != null) {
+        print("Já existe um lugar próximo ${lugarPerto['nome']}");
+        db.close();
+        return;
+      } else {
+        WriteResult result = await collection.insertOne(
+          estabelecimento.toMongoDoc(),
         );
 
-        if (distancia <= 10) {
-          print(
-            "Não é possivel inserir um estabelecimento neste local pois esta perto demais de outro",
-          );
-          db.close();
-
-          return;
+        if (result.writeError == null) {
+          print("estabelecimento adicionado !!! ");
+        } else {
+          print("Erro na inserção!");
         }
-      } else {
-        print("Documento sem lat/long/nome: $e");
+
+        db.close();
+
+        return;
       }
-    }
-    WriteResult result = await collection.insertOne({
-      'nome': estabelecimento.Nome,
-      'long': estabelecimento.Latitude,
-      'lat': estabelecimento.Longitude,
-    });
-
-    if (result.writeError == null) {
-      print("estabelecimento adicionado !!! ");
     } else {
-      print("Erro na inserção!");
+      return;
     }
-
-    db.close();
-
-    return;
   }
 
   static Future<List<Map<String, dynamic>>?> buscarEstabelecimentos({
@@ -86,21 +60,22 @@ class Operacoes {
     DbCollection collection = db.collection("Estabelecimentos");
 
     try {
-      if (search != null) {
-        itemsEstabelecimento = await collection.find({
+      List<Map<String, dynamic>> resultado;
+
+      if (search != null && search.isNotEmpty) {
+        resultado = await collection.find({
           'nome': {r'$regex': search, r'$options': 'i'},
         }).toList();
       } else {
-        itemsEstabelecimento = await collection.find().toList();
-        stdin.readLineSync();
-
-        db.close();
+        resultado = await collection.find().toList();
       }
-      return itemsEstabelecimento;
+
+      return resultado;
     } on MongoDartError catch (e) {
-      print("erro no mongodart : ${e.message} \n codigo : ${e.errorCode}");
-      await db.close();
+      print("Erro no MongoDart: ${e.message} \nCódigo: ${e.errorCode}");
       return null;
+    } finally {
+      await db.close();
     }
   }
 
@@ -109,67 +84,50 @@ class Operacoes {
     String nome,
   ) async {
     Db db = await dbConn.connect();
+    var collection = db.collection("Estabelecimentos");
 
-    DbCollection collection = db.collection("Estabelecimentos");
-    itemsEstabelecimento = await collection.find().toList();
-
-    for (var e in itemsEstabelecimento) {
-      if (e.containsKey('lat') &&
-          e.containsKey('long') &&
-          e.containsKey('nome')) {
-        if (e['nome'] != nome) {
-          double latExistente = e['lat'];
-          double lonExistente = e['long'];
-
-          double distancia = haversine(
-            estabelecimento.Latitude!,
-            estabelecimento.Longitude!,
-            latExistente,
-            lonExistente,
-          );
-
-          if (distancia <= 10) {
-            print(
-              "Não é possivel inserir um estabelecimento neste local pois esta perto demais de outro",
-            );
-            db.close();
-
-            return false;
-          }
-        }
-      } else {
-        print("Documento sem lat/long/nome: $e");
-      }
-    }
     try {
-      var docold = await collection.findOne(where.eq('nome', nome));
-
-      if (docold != null) {
-        await collection.update(
-          {'nome': nome},
-          {
-            '\$set': {
-              'nome': estabelecimento.Nome,
-              'lat': estabelecimento.Latitude,
-              'long': estabelecimento.Longitude,
-            },
+      // Verifica se já existe um estabelecimento próximo
+      var lugarPerto = await collection.findOne({
+        'location': {
+          '\$near': {
+            '\$geometry': estabelecimento.toGeoPoint(),
+            '\$maxDistance': 2000,
           },
-        );
-      } else {
-        print("Nome $nome não encontrado!");
-        throw Exception("Não tem o nome no banco de dados");
+        },
+      });
+
+      if (lugarPerto != null) {
+        print("Já existe um lugar próximo: ${lugarPerto['nome']}");
+        return false;
       }
+
+      // Busca o documento antigo
+      var docOld = await collection.findOne(where.eq('nome', nome));
+      if (docOld == null) {
+        print("Nome $nome não encontrado!");
+        return false;
+      }
+
+      // Atualiza apenas os campos do objeto
+      await collection.updateOne(
+        where.eq('nome', nome),
+        ModifierBuilder()
+            .set('nome', estabelecimento.Nome)
+            .set('location', estabelecimento.toGeoPoint()),
+      );
+
+      print("Estabelecimento atualizado com sucesso!");
+      return true;
     } on MongoDartError catch (e) {
-      print("Valor não alterado, erro : ${e.message}");
-      db.close();
+      print("Erro do Mongo: ${e.message}");
       return false;
     } catch (e) {
-      print("ERRO GERAL DENTRO DO EDIT : $e");
+      print("Erro geral: $e");
+      return false;
+    } finally {
+      await db.close();
     }
-    db.close();
-    stdin.readLineSync();
-
-    return true;
   }
 
   static Future<void> deletarEstabelecimento(String nome) async {
@@ -188,6 +146,8 @@ class Operacoes {
       print("erro no Mongo : ${E.message}");
     } catch (e) {
       print("erro na inserção: $e");
+    } finally {
+      db.close();
     }
   }
 }

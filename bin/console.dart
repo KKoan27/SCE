@@ -42,8 +42,7 @@ void main() async {
 
             for (var i in result) {
               print("NOME${i['nome']}");
-              print("LATITUDE${i['lat']}");
-              print("LONGITUDE${i['long']}");
+              print("Coordenadas : ${i['location']['coordinates']}");
               print("------------------------- \n");
             }
           } else {
@@ -81,6 +80,9 @@ void main() async {
 
         case 3:
           limparTela();
+          print(
+            "Lembrete :As Latitude e Logintude tem o range permitido de 180 a -180!!",
+          );
           print("Digite o nome do estabelecimento que voce quer alterar");
           String nomeold = stdin.readLineSync()!;
 
